@@ -1,0 +1,8 @@
+displayName = Player Render Target Library
+author = DavidFDev
+version = 1.0.0
+homepage = https://github.com/DavidF-Dev/Terraria-Player-Render-Target-Lib
+hideCode = false
+hideResources = true
+includeSource = false
+buildIgnore = Properties/*, *.md, *.DotSettings.user

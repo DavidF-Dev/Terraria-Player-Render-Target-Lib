@@ -1,0 +1,168 @@
+﻿/*
+ *  PlayerRenderTargetSystem.cs
+ *  DavidFDev
+ */
+
+using System;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Terraria;
+using Terraria.Graphics.Light;
+using Terraria.ModLoader;
+
+namespace PlayerRenderTargetLib.Code.Internals;
+
+[Autoload(Side = ModSide.Client)]
+// ReSharper disable once ClassNeverInstantiated.Global
+internal sealed class PlayerRenderTargetSystem : ModSystem
+{
+    #region Fields
+
+    private readonly int[] _playerIndexLookup = new int[Main.maxPlayers];
+    private Point _sheetSquare;
+    private int _prevNumPlayers;
+    private Vector2 _oldPos;
+    private Vector2 _positionOffset;
+
+    #endregion
+
+    #region Properties
+
+    public RenderTarget2D Target { get; private set; }
+
+    public bool CanUseTarget { get; private set; }
+
+    #endregion
+
+    #region Methods
+
+    public override void Load()
+    {
+        if (Main.dedServ)
+        {
+            return;
+        }
+
+        Array.Fill(_playerIndexLookup, -1);
+        _sheetSquare = new Point(200, 300);
+        _prevNumPlayers = -1;
+
+        Main.QueueMainThreadAction(() => Target = new RenderTarget2D(Main.graphics.GraphicsDevice, Main.screenWidth, Main.screenHeight));
+
+        On_Main.CheckMonoliths += OnCheckMonoliths;
+        On_LightingEngine.GetColor += OnGetLightningEngineColour;
+    }
+
+    public Rectangle GetTargetSourceRectangle(int whoAmI)
+    {
+        return TryGetPlayerIndex(whoAmI, out var index) ? new Rectangle(index * _sheetSquare.X, 0, _sheetSquare.X, _sheetSquare.Y) : Rectangle.Empty;
+    }
+
+    public Vector2 GetTargetPosition(int whoAmI)
+    {
+        var gravPosition = Main.ReverseGravitySupport(Main.player[whoAmI].position - Main.screenPosition);
+        return gravPosition - new Vector2(_sheetSquare.X / 2f, _sheetSquare.Y / 2f);
+    }
+
+    public Vector2 GetTargetPositionOffset(int whoAmI)
+    {
+        return TryGetPlayerIndex(whoAmI, out var index) ? new Vector2(index * _sheetSquare.X + _sheetSquare.X / 2f, _sheetSquare.Y / 2f) : Vector2.Zero;
+    }
+
+    private bool TryGetPlayerIndex(int whoAmI, out int index)
+    {
+        index = _playerIndexLookup[whoAmI];
+        return index is >= 0 and < Main.maxPlayers;
+    }
+
+    private void Draw()
+    {
+        var activePlayerCount = Main.CurrentFrameFlags.ActivePlayersCount;
+        if (activePlayerCount != _prevNumPlayers)
+        {
+            _prevNumPlayers = activePlayerCount;
+
+            Target.Dispose();
+            Target = new RenderTarget2D(Main.graphics.GraphicsDevice, _sheetSquare.Y * activePlayerCount, _sheetSquare.Y);
+
+            var activeCount = 0;
+            for (var i = 0; i < Main.maxPlayers; i++)
+            {
+                _playerIndexLookup[i] = Main.player[i].active ? activeCount++ : -1;
+            }
+        }
+
+        var oldTargets = Main.graphics.GraphicsDevice.GetRenderTargets();
+        CanUseTarget = false;
+        try
+        {
+            Main.graphics.GraphicsDevice.SetRenderTarget(Target);
+            Main.graphics.GraphicsDevice.Clear(Color.Transparent);
+
+            Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, Main.DefaultSamplerState, DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.EffectMatrix);
+            try
+            {
+                foreach (var player in Main.ActivePlayers)
+                {
+                    if (player.dye.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    _oldPos = player.position;
+                    var oldCenter = player.Center;
+                    var oldMountedCenter = player.MountedCenter;
+                    var oldScreen = Main.screenPosition;
+                    var oldItemLocation = player.itemLocation;
+                    var oldHeldProj = player.heldProj;
+                    try
+                    {
+                        _positionOffset = GetTargetPositionOffset(player.whoAmI);
+                        player.position = _positionOffset;
+                        player.Center = oldCenter - _oldPos + _positionOffset;
+                        player.itemLocation = oldItemLocation - _oldPos + _positionOffset;
+                        player.MountedCenter = oldMountedCenter - _oldPos + _positionOffset;
+                        player.heldProj = -1;
+                        Main.screenPosition = Vector2.Zero;
+
+                        Main.PlayerRenderer.DrawPlayer(Main.Camera, player, player.position, player.fullRotation, player.fullRotationOrigin);
+                    }
+                    finally
+                    {
+                        player.position = _oldPos;
+                        player.Center = oldCenter;
+                        Main.screenPosition = oldScreen;
+                        player.itemLocation = oldItemLocation;
+                        player.MountedCenter = oldMountedCenter;
+                        player.heldProj = oldHeldProj;
+                    }
+                }
+            }
+            finally
+            {
+                Main.spriteBatch.End();
+            }
+        }
+        finally
+        {
+            Main.graphics.GraphicsDevice.SetRenderTargets(oldTargets);
+            CanUseTarget = true;
+        }
+    }
+
+    private void OnCheckMonoliths(On_Main.orig_CheckMonoliths orig)
+    {
+        orig.Invoke();
+        if (!Main.gameMenu && Main.CurrentFrameFlags.ActivePlayersCount > 0)
+        {
+            Draw();
+        }
+    }
+
+    private Vector3 OnGetLightningEngineColour(On_LightingEngine.orig_GetColor orig, LightingEngine self, int x, int y)
+    {
+        return CanUseTarget ? orig.Invoke(self, x + (int)((_oldPos.X - _positionOffset.X) / 16), y + (int)((_oldPos.Y - _positionOffset.Y) / 16)) : orig.Invoke(self, x, y);
+    }
+
+    #endregion
+}
