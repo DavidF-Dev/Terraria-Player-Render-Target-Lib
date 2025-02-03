@@ -7,7 +7,6 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using PlayerRenderTargetLib.Code.Internals;
 using Terraria;
-using Terraria.ModLoader;
 
 namespace PlayerRenderTargetLib.Code;
 
@@ -20,35 +19,34 @@ public static class PlayerRenderTargetExtensions
 
     public static bool TryGetRenderTarget(this Player _, out RenderTarget2D target)
     {
-        var system = ModContent.GetInstance<PlayerRenderTargetSystem>();
-        if (!system.CanUseTarget)
+        if (!PlayerRenderTargetSystem.CanUseTarget)
         {
             target = null;
             return false;
         }
 
-        target = system.Target;
+        target = PlayerRenderTargetSystem.Target;
         return true;
     }
 
     public static bool CanUseRenderTarget(this Player _)
     {
-        return ModContent.GetInstance<PlayerRenderTargetSystem>().CanUseTarget;
+        return PlayerRenderTargetSystem.CanUseTarget;
     }
 
     public static RenderTarget2D GetRenderTarget(this Player _)
     {
-        return ModContent.GetInstance<PlayerRenderTargetSystem>().Target;
+        return PlayerRenderTargetSystem.Target;
     }
 
     public static Rectangle GetRenderTargetSourceRectangle(this Player player)
     {
-        return ModContent.GetInstance<PlayerRenderTargetSystem>().GetTargetSourceRectangle(player.whoAmI);
+        return PlayerRenderTargetSystem.GetTargetSourceRectangle(player.whoAmI);
     }
 
     public static Vector2 GetRenderTargetPosition(this Player player)
     {
-        return ModContent.GetInstance<PlayerRenderTargetSystem>().GetTargetPosition(player.whoAmI);
+        return PlayerRenderTargetSystem.GetTargetPosition(player.whoAmI);
     }
 
     #endregion

@@ -12,70 +12,45 @@ using Terraria.ModLoader;
 
 namespace PlayerRenderTargetLib.Code.Internals;
 
-[Autoload(Side = ModSide.Client)]
 // ReSharper disable once ClassNeverInstantiated.Global
+[Autoload(Side = ModSide.Client)]
 internal sealed class PlayerRenderTargetSystem : ModSystem
 {
-    #region Fields
+    #region Static Fields and Constants
 
-    private readonly int[] _playerIndexLookup = new int[Main.maxPlayers];
-    private Point _sheetSquare;
-    private int _prevNumPlayers;
-    private Vector2 _oldPos;
-    private Vector2 _positionOffset;
-
-    #endregion
-
-    #region Properties
-
-    public RenderTarget2D Target { get; private set; }
-
-    public bool CanUseTarget { get; private set; }
+    private static readonly int[] PlayerIndexLookup = new int[Main.maxPlayers];
+    private static Point _sheetSquare;
+    private static int _prevNumPlayers;
+    private static Vector2 _oldPos;
+    private static Vector2 _positionOffset;
 
     #endregion
 
-    #region Methods
+    #region Static Methods
 
-    public override void Load()
-    {
-        if (Main.dedServ)
-        {
-            return;
-        }
-
-        Array.Fill(_playerIndexLookup, -1);
-        _sheetSquare = new Point(200, 300);
-        _prevNumPlayers = -1;
-
-        Main.QueueMainThreadAction(() => Target = new RenderTarget2D(Main.graphics.GraphicsDevice, Main.screenWidth, Main.screenHeight));
-
-        On_Main.CheckMonoliths += OnCheckMonoliths;
-        On_LightingEngine.GetColor += OnGetLightningEngineColour;
-    }
-
-    public Rectangle GetTargetSourceRectangle(int whoAmI)
+    public static Rectangle GetTargetSourceRectangle(int whoAmI)
     {
         return TryGetPlayerIndex(whoAmI, out var index) ? new Rectangle(index * _sheetSquare.X, 0, _sheetSquare.X, _sheetSquare.Y) : Rectangle.Empty;
     }
 
-    public Vector2 GetTargetPosition(int whoAmI)
+    public static Vector2 GetTargetPosition(int whoAmI)
     {
         var gravPosition = Main.ReverseGravitySupport(Main.player[whoAmI].position - Main.screenPosition);
         return gravPosition - new Vector2(_sheetSquare.X / 2f, _sheetSquare.Y / 2f);
     }
 
-    public Vector2 GetTargetPositionOffset(int whoAmI)
+    public static Vector2 GetTargetPositionOffset(int whoAmI)
     {
         return TryGetPlayerIndex(whoAmI, out var index) ? new Vector2(index * _sheetSquare.X + _sheetSquare.X / 2f, _sheetSquare.Y / 2f) : Vector2.Zero;
     }
 
-    private bool TryGetPlayerIndex(int whoAmI, out int index)
+    private static bool TryGetPlayerIndex(int whoAmI, out int index)
     {
-        index = _playerIndexLookup[whoAmI];
+        index = whoAmI is >= 0 and < Main.maxPlayers ? PlayerIndexLookup[whoAmI] : -1;
         return index is >= 0 and < Main.maxPlayers;
     }
 
-    private void Draw()
+    private static void Draw()
     {
         var activePlayerCount = Main.CurrentFrameFlags.ActivePlayersCount;
         if (activePlayerCount != _prevNumPlayers)
@@ -88,7 +63,7 @@ internal sealed class PlayerRenderTargetSystem : ModSystem
             var activeCount = 0;
             for (var i = 0; i < Main.maxPlayers; i++)
             {
-                _playerIndexLookup[i] = Main.player[i].active ? activeCount++ : -1;
+                PlayerIndexLookup[i] = Main.player[i].active ? activeCount++ : -1;
             }
         }
 
@@ -150,7 +125,7 @@ internal sealed class PlayerRenderTargetSystem : ModSystem
         }
     }
 
-    private void OnCheckMonoliths(On_Main.orig_CheckMonoliths orig)
+    private static void OnCheckMonoliths(On_Main.orig_CheckMonoliths orig)
     {
         orig.Invoke();
         if (!Main.gameMenu && Main.CurrentFrameFlags.ActivePlayersCount > 0)
@@ -159,9 +134,44 @@ internal sealed class PlayerRenderTargetSystem : ModSystem
         }
     }
 
-    private Vector3 OnGetLightningEngineColour(On_LightingEngine.orig_GetColor orig, LightingEngine self, int x, int y)
+    private static Vector3 OnGetLightingEngineColour(On_LightingEngine.orig_GetColor orig, LightingEngine self, int x, int y)
     {
         return CanUseTarget ? orig.Invoke(self, x + (int)((_oldPos.X - _positionOffset.X) / 16), y + (int)((_oldPos.Y - _positionOffset.Y) / 16)) : orig.Invoke(self, x, y);
+    }
+
+    #endregion
+
+    #region Properties
+
+    /// <summary>
+    ///     Shared render target.
+    /// </summary>
+    public static RenderTarget2D Target { get; private set; }
+
+    /// <summary>
+    ///     Whether the render target can currently be used.
+    /// </summary>
+    public static bool CanUseTarget { get; private set; }
+
+    #endregion
+
+    #region Methods
+
+    public override void Load()
+    {
+        if (Main.dedServ)
+        {
+            return;
+        }
+
+        Array.Fill(PlayerIndexLookup, -1);
+        _sheetSquare = new Point(200, 300);
+        _prevNumPlayers = -1;
+
+        Main.QueueMainThreadAction(() => Target = new RenderTarget2D(Main.graphics.GraphicsDevice, Main.screenWidth, Main.screenHeight));
+
+        On_Main.CheckMonoliths += OnCheckMonoliths;
+        On_LightingEngine.GetColor += OnGetLightingEngineColour;
     }
 
     #endregion
