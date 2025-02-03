@@ -139,7 +139,7 @@ internal sealed class PlayerRenderTargetSystem : ModSystem
 
     private static Vector3 OnGetLightingEngineColour(On_LightingEngine.orig_GetColor orig, LightingEngine self, int x, int y)
     {
-        return CanUseTarget ? orig.Invoke(self, x + (int)((_oldPos.X - _positionOffset.X) / 16), y + (int)((_oldPos.Y - _positionOffset.Y) / 16)) : orig.Invoke(self, x, y);
+        return CanUseTarget ? orig.Invoke(self, x, y) : orig.Invoke(self, x + (int)((_oldPos.X - _positionOffset.X) / 16), y + (int)((_oldPos.Y - _positionOffset.Y) / 16));
     }
 
     #endregion
