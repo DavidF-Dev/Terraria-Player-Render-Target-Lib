@@ -52,6 +52,9 @@ internal sealed class PlayerRenderTargetSystem : ModSystem
 
     private static void Draw()
     {
+        // https://github.com/ProjectStarlight/StarlightRiver/blob/fb35df83489a4d840271e946ba38448037fe7cc6/Content/CustomHooks/Visuals.PlayerTarget.cs
+        // https://github.com/stormytuna/GrapplingHookAlternatives/blob/main/Common/RenderTargets/PlayerRenderTarget.cs
+        
         var activePlayerCount = Main.CurrentFrameFlags.ActivePlayersCount;
         if (activePlayerCount != _prevNumPlayers)
         {
