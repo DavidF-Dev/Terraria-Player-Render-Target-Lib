@@ -36,25 +36,25 @@ internal sealed class PlayerRenderTargetSystem : ModSystem
     public static Vector2 GetTargetPosition(int whoAmI)
     {
         var gravPosition = Main.ReverseGravitySupport(Main.player[whoAmI].position - Main.screenPosition);
-        return gravPosition - new Vector2(_sheetSquare.X / 2f, _sheetSquare.Y / 2f);
+        return gravPosition - new Vector2((int)(_sheetSquare.X / 2f), (int)(_sheetSquare.Y / 2f));
     }
 
     public static Vector2 GetTargetPositionOffset(int whoAmI)
     {
-        return TryGetPlayerIndex(whoAmI, out var index) ? new Vector2(index * _sheetSquare.X + _sheetSquare.X / 2f, _sheetSquare.Y / 2f) : Vector2.Zero;
+        return TryGetPlayerIndex(whoAmI, out var index) ? new Vector2(index * _sheetSquare.X + (int)(_sheetSquare.X / 2f), (int)(_sheetSquare.Y / 2f)) : Vector2.Zero;
     }
 
     private static bool TryGetPlayerIndex(int whoAmI, out int index)
     {
-        index = whoAmI is >= 0 and < Main.maxPlayers ? PlayerIndexLookup[whoAmI] : -1;
-        return index is >= 0 and < Main.maxPlayers;
+        index = PlayerIndexLookup[whoAmI];
+        return index >= 0;
     }
 
     private static void Draw()
     {
         // https://github.com/ProjectStarlight/StarlightRiver/blob/fb35df83489a4d840271e946ba38448037fe7cc6/Content/CustomHooks/Visuals.PlayerTarget.cs
         // https://github.com/stormytuna/GrapplingHookAlternatives/blob/main/Common/RenderTargets/PlayerRenderTarget.cs
-        
+
         var activePlayerCount = Main.CurrentFrameFlags.ActivePlayersCount;
         if (activePlayerCount != _prevNumPlayers)
         {
@@ -103,7 +103,9 @@ internal sealed class PlayerRenderTargetSystem : ModSystem
                         player.heldProj = -1;
                         Main.screenPosition = Vector2.Zero;
 
-                        Main.PlayerRenderer.DrawPlayer(Main.Camera, player, player.position, player.fullRotation, player.fullRotationOrigin);
+                        var drawPosition = player.position;
+                        drawPosition.Y += player.gfxOffY;
+                        Main.PlayerRenderer.DrawPlayer(Main.Camera, player, drawPosition, player.fullRotation, player.fullRotationOrigin);
                     }
                     finally
                     {
